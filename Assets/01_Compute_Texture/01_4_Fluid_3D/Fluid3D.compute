@@ -110,10 +110,14 @@ void Kernel_Advection (uint3 id : SV_DispatchThreadid)
 	//Advect density
 	float4 density = DensityTex[id];
 	float4 densityPrev = DensityTex[previd];
-	density.a = 0.999f * densityPrev.a * obstacle;
+	density.a = max(0.98f * densityPrev.a * obstacle, 0.0f);
 
 	//Advect dye color
-	density.rgb = BlendColor(density.rgb, densityPrev.rgb, 0.8f);
+	if (density.a > 0.0001f)
+	{
+		density.rgb = densityPrev.rgb;
+	}
+	//density.rgb = BlendColor(density.rgb, densityPrev.rgb, 0.8f);
 	DensityTex[id] = density;
 
 	//Advect velocity
@@ -139,10 +143,14 @@ void Kernel_UserInput (uint3 id : SV_DispatchThreadid)
 
 	//Add dye density
 	float speed = distance(sphereVelocity,0);
-	density.a += impulse * speed;
+	// density.a += impulse * speed;
+	density.a = saturate(density.a + impulse * speed);
 
 	//Add dye color
-	density.rgb = BlendColor(density.rgb, dyeColor, impulse * speed);
+	if (impulse > 0.0001f) {
+		density.rgb = BlendColor(density.rgb, dyeColor, impulse);
+	}
+	// density.rgb = BlendColor(density.rgb, dyeColor, impulse * speed);
 
 	//Buoyancy, making the fluid goes out from center, instead of having gravity
 	float3 cdir = uv - center;

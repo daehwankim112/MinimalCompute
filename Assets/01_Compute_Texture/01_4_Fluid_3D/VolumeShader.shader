@@ -5,12 +5,13 @@ Shader "Unlit/VolumeShader"
     {
         _MainTex ("Texture", 3D) = "white" {}
         _Alpha ("Alpha", float) = 0.02
-        //_StepSize ("Step Size", float) = 0.01 //Match with cube's transform scale, i.e. scale * 0.01
+        _StepSize ("Step Size", float) = 0.001 //Match with cube's transform scale, i.e. scale * 0.01
     }
     SubShader
     {
         Tags { "Queue" = "Transparent" "RenderType" = "Transparent" }
-        Blend OneMinusDstColor One //Soft additive
+        // Blend OneMinusDstColor One //Soft additive
+        Blend One OneMinusSrcAlpha
         LOD 100
 
         Pass
@@ -30,6 +31,7 @@ Shader "Unlit/VolumeShader"
             struct appdata
             {
                 float4 vertex : POSITION;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct v2f
@@ -38,16 +40,21 @@ Shader "Unlit/VolumeShader"
                 float3 objectVertex : TEXCOORD0;
                 float3 vectorToSurface : TEXCOORD1;
                 float eyeDepth : TEXCOORD2;
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
             sampler3D _MainTex;
             float4 _MainTex_ST;
             float _Alpha;
-            //float _StepSize;
+            float _StepSize;
 
             v2f vert (appdata v)
             {
                 v2f o;
+
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_OUTPUT(v2f, o);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
                 // Vertex in object space this will be the starting point of raymarching
                 o.objectVertex = v.vertex;
@@ -70,6 +77,8 @@ Shader "Unlit/VolumeShader"
 
             fixed4 frag(v2f input) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
+                
                 // Start raymarching at the front surface of the object
                 float3 rayOrigin = input.objectVertex;
 
@@ -88,7 +97,7 @@ Shader "Unlit/VolumeShader"
                     {
                         float4 sampledColor = tex3D(_MainTex, samplePosition + float3(0.5f, 0.5f, 0.5f));
                         color = BlendUnder(color, sampledColor);
-                        samplePosition += rayDirection * pixelToWorldScale;// * _StepSize;
+                        samplePosition += rayDirection * pixelToWorldScale * _StepSize;
                     }
                 }
                 
